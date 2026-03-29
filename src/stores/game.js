@@ -69,8 +69,20 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // Create room
-  async function createRoom(hostPlayerId, hostName) {
-    const code = generateRoomCode()
+  async function createRoom(hostPlayerId, hostName, providedRoomCode) {
+    let code = providedRoomCode
+
+    if (code) {
+      const existing = await get(dbRef(db, `rooms/${code}/info`))
+      if (existing.exists()) {
+        code = null
+      }
+    }
+
+    if (!code) {
+      code = generateRoomCode()
+    }
+
     const roomData = {
       info: {
         createdAt: Date.now(),
@@ -182,24 +194,58 @@ export const useGameStore = defineStore('game', () => {
     updates[`rooms/${roomCode.value}/info/cardCount`] = cardCount
     updates[`rooms/${roomCode.value}/info/scoreCalculated`] = false
 
-    ids.forEach((id, i) => {
-      updates[`rooms/${roomCode.value}/players/${id}/cardId`] = i + 1
+    const storytellerIndex = Math.floor(Math.random() * ids.length)
+
+    ids.forEach((id) => {
+      // 洗牌后编号由每位玩家在投票页自行选择，不在开局写入
+      updates[`rooms/${roomCode.value}/players/${id}/cardId`] = null
       updates[`rooms/${roomCode.value}/players/${id}/hasVoted`] = false
       updates[`rooms/${roomCode.value}/players/${id}/votedFor`] = null
     })
 
-    const storytellerIndex = Math.floor(Math.random() * ids.length)
     updates[`rooms/${roomCode.value}/info/storytellerIndex`] = storytellerIndex
 
     await update(dbRef(db), updates)
   }
 
-  // Submit vote
-  async function submitVote(playerId, cardId) {
-    await update(dbRef(db, `rooms/${roomCode.value}/players/${playerId}`), {
-      hasVoted: true,
-      votedFor: cardId
-    })
+  // 所有人投票时同步提交自己出的牌编号；非讲述者另传 voteFor（投给哪张牌，不能等于自己的 myCardId）
+  async function submitVote(playerId, myCardId, voteFor) {
+    const playerList = Object.values(players.value)
+    const st = storyteller.value
+
+    const updates = {}
+
+    if (myCardId != null) {
+      updates[`rooms/${roomCode.value}/players/${playerId}/cardId`] = myCardId
+    }
+
+    if (st && playerId !== st.id) {
+      if (voteFor != null && Number(voteFor) === Number(myCardId)) {
+        throw new Error('不能投自己出的牌')
+      }
+      updates[`rooms/${roomCode.value}/players/${playerId}/hasVoted`] = true
+      if (voteFor != null) {
+        updates[`rooms/${roomCode.value}/players/${playerId}/votedFor`] = voteFor
+      }
+
+      const nonStList = playerList.filter(p => p.id !== st.id)
+      const allVoted = nonStList.every(p => p.id === playerId ? true : p.hasVoted)
+
+      if (allVoted) {
+        const cardOwners = {}
+        playerList.forEach(p => {
+          if (p.cardId != null) {
+            cardOwners[String(p.cardId)] = p.id
+          }
+        })
+        const stCardId = st.cardId != null ? String(st.cardId) : null
+        updates[`rooms/${roomCode.value}/info/cardOwners`] = cardOwners
+        updates[`rooms/${roomCode.value}/info/storytellerCardId`] = stCardId ? parseInt(stCardId) : null
+        updates[`rooms/${roomCode.value}/info/status`] = GAME_STATUS.REVEAL_INPUT
+      }
+    }
+
+    await update(dbRef(db), updates)
   }
 
   // Reveal card owners (host only)
@@ -347,9 +393,8 @@ export const useGameStore = defineStore('game', () => {
     updates[`rooms/${roomCode.value}/info/lastScoreChanges`] = null
     updates[`rooms/${roomCode.value}/info/storytellerIndex`] = nextStIndex
 
-    ids.forEach((id, i) => {
-      const newCardId = ((i + newRound - 1) % ids.length) + 1
-      updates[`rooms/${roomCode.value}/players/${id}/cardId`] = newCardId
+    ids.forEach((id) => {
+      updates[`rooms/${roomCode.value}/players/${id}/cardId`] = null
       updates[`rooms/${roomCode.value}/players/${id}/hasVoted`] = false
       updates[`rooms/${roomCode.value}/players/${id}/votedFor`] = null
     })

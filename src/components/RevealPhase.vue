@@ -70,15 +70,17 @@ const isComplete = computed(() => {
   return cardIds.value.every(id => !!cardOwners.value[id])
 })
 
-// Pre-select storyteller's card
-watch(() => props.storytellerId, (stId) => {
-  if (!stId) return
+// Pre-fill all card owners from players' cardIds
+watch(() => props.players, (playerList) => {
+  if (!playerList || playerList.length === 0) return
 
-  // Find storyteller's card
-  const st = props.players.find(p => p.id === stId)
-  if (st && st.cardId) {
-    cardOwners.value[st.cardId] = stId
-  }
+  const owners = {}
+  playerList.forEach(p => {
+    if (p.cardId != null) {
+      owners[String(p.cardId)] = p.id
+    }
+  })
+  cardOwners.value = owners
 }, { immediate: true })
 
 function handleSelect(cardId, playerId) {

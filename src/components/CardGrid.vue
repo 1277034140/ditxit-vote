@@ -6,9 +6,9 @@
       class="card-btn"
       :class="{
         selected: selectedCard === cardId,
-        disabled: disabled
+        disabled: disabled || excludeIds.includes(cardId)
       }"
-      :disabled="disabled"
+      :disabled="disabled || excludeIds.includes(cardId)"
       @click="selectCard(cardId)"
     >
       {{ cardId }}
@@ -31,6 +31,10 @@ const props = defineProps({
   modelValue: {
     type: Number,
     default: null
+  },
+  excludeIds: {
+    type: Array,
+    default: () => []
   }
 })
 

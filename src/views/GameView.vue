@@ -147,15 +147,15 @@ watch(() => gameStore.roomInfo?.status, (status) => {
   handleStatusChange(status)
 })
 
-watch(() => gameStore.allVoted, (allVoted) => {
-  if (allVoted && gameStore.roomInfo?.status === GAME_STATUS.VOTING) {
+watch(() => [gameStore.votedCount, gameStore.totalVoters, gameStore.roomInfo?.status], ([voted, total, status]) => {
+  if (status === GAME_STATUS.VOTING && voted > 0 && voted === total) {
     if (playerStore.isHost) {
       currentPage.value = 'reveal-input'
     } else {
       currentPage.value = 'reveal-view'
     }
   }
-})
+}, { deep: true })
 
 // Handle status changes - this is the core state machine
 function handleStatusChange(status) {
@@ -215,7 +215,7 @@ function handleShowJoin() {
 async function handleEnterRoom(playerName) {
   try {
     const playerId = playerStore.generatePlayerId()
-    await gameStore.createRoom(playerId, playerName)
+    await gameStore.createRoom(playerId, playerName, pendingRoomCode.value)
     playerStore.setPlayer(playerId, playerName, true)
     gameStore.watchRoom()
     currentPage.value = 'lobby'
@@ -244,12 +244,14 @@ async function handleStartGame() {
   }
 }
 
-async function handleSubmitVote(cardId) {
+async function handleSubmitVote({ myCardId, voteFor }) {
   try {
-    await gameStore.submitVote(playerStore.playerId, cardId)
-    currentPage.value = 'waiting-vote'
+    await gameStore.submitVote(playerStore.playerId, myCardId, voteFor)
+    if (voteFor !== null && voteFor !== undefined) {
+      currentPage.value = 'waiting-vote'
+    }
   } catch (e) {
-    alert('投票失败: ' + e.message)
+    alert('提交失败: ' + e.message)
   }
 }
 
