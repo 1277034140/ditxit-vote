@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Dixit 裁判</title>
+<style>
+body{
+font-family:sans-serif;
+max-width:500px;
+margin:auto;
+padding:20px;
+background:#f5f5f5;
+}
+button{
+padding:10px;
+margin:5px;
+font-size:16px;
+}
+.player{
+display:flex;
+justify-content:space-between;
+padding:5px 0;
+}
+.voteBtn{
+width:60px;
+height:60px;
+font-size:20px;
+margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Dixit 裁判</h2>
+
+<div id="setup">
+
+<h3>输入玩家</h3>
+<input id="playerName" placeholder="玩家名字">
+<button onclick="addPlayer()">添加</button>
+
+<div id="playerList"></div>
+
+<button onclick="startGame()">开始游戏</button>
+
+</div>
+
+<div id="game" style="display:none">
+
+<h3 id="roundInfo"></h3>
+<h3 id="storyteller"></h3>
+
+<div id="scoreboard"></div>
+
+<hr>
+
+<h3 id="voteTitle"></h3>
+<div id="voteArea"></div>
+
+<hr>
+
+<div id="answerArea" style="display:none">
+<h3>输入讲述者卡牌编号</h3>
+<input id="answerInput">
+<button onclick="finishRound()">计算结果</button>
+</div>
+
+</div>
+
+<script>
+
+let game={
+players:[],
+storyIndex:0,
+votes:[],
+currentVoter:0,
+cardCount:0,
+round:1
+}
+
+function addPlayer(){
+
+let name=document.getElementById("playerName").value
+
+if(!name)return
+
+game.players.push({name:name,score:0})
+
+document.getElementById("playerName").value=""
+
+renderPlayerList()
+
+}
+
+function renderPlayerList(){
+
+let list=document.getElementById("playerList")
+
+list.innerHTML=""
+
+game.players.forEach(p=>{
+let div=document.createElement("div")
+div.innerText=p.name
+list.appendChild(div)
+})
+
+}
+
+function startGame(){
+
+if(game.players.length<3){
+alert("至少3人")
+return
+}
+
+document.getElementById("setup").style.display="none"
+document.getElementById("game").style.display="block"
+
+nextRound()
+
+}
+
+function nextRound(){
+
+game.votes=[]
+game.currentVoter=0
+
+let storyteller=game.players[game.storyIndex]
+
+document.getElementById("roundInfo").innerText="第 "+game.round+" 轮"
+
+document.getElementById("storyteller").innerText="讲述者: "+storyteller.name
+
+renderScore()
+
+game.cardCount=game.players.length
+
+startVoting()
+
+}
+
+function renderScore(){
+
+let board=document.getElementById("scoreboard")
+
+board.innerHTML="<h3>排行榜</h3>"
+
+game.players.forEach(p=>{
+let div=document.createElement("div")
+div.className="player"
+div.innerHTML="<span>"+p.name+"</span><span>"+p.score+"</span>"
+board.appendChild(div)
+})
+
+}
+
+function startVoting(){
+
+let voteTitle=document.getElementById("voteTitle")
+
+let voterIndex=getNextVoter()
+
+if(voterIndex===null){
+
+document.getElementById("voteArea").innerHTML=""
+
+document.getElementById("answerArea").style.display="block"
+
+return
+
+}
+
+let voter=game.players[voterIndex]
+
+voteTitle.innerText=voter.name+" 投票"
+
+renderVoteButtons(voterIndex)
+
+}
+
+function getNextVoter(){
+
+for(let i=game.currentVoter;i<game.players.length;i++){
+
+if(i!==game.storyIndex){
+
+game.currentVoter=i+1
+return i
+
+}
+
+}
+
+return null
+
+}
+
+function renderVoteButtons(voterIndex){
+
+let area=document.getElementById("voteArea")
+
+area.innerHTML=""
+
+for(let i=1;i<=game.cardCount;i++){
+
+let btn=document.createElement("button")
+
+btn.className="voteBtn"
+
+btn.innerText=i
+
+btn.onclick=()=>vote(voterIndex,i)
+
+area.appendChild(btn)
+
+}
+
+}
+
+function vote(playerIndex,card){
+
+game.votes.push({
+player:playerIndex,
+card:card
+})
+
+startVoting()
+
+}
+
+function finishRound(){
+
+let answer=parseInt(document.getElementById("answerInput").value)
+
+let storyteller=game.players[game.storyIndex]
+
+let correct=game.votes.filter(v=>v.card===answer)
+
+if(correct.length===0 || correct.length===game.players.length-1){
+
+game.players.forEach((p,i)=>{
+if(i!==game.storyIndex)p.score+=2
+})
+
+}else{
+
+storyteller.score+=3
+
+correct.forEach(v=>{
+game.players[v.player].score+=3
+})
+
+}
+
+game.votes.forEach(v=>{
+if(v.card!==answer){
+let ownerIndex=v.card-1
+if(ownerIndex!==game.storyIndex){
+game.players[ownerIndex].score+=1
+}
+}
+})
+
+document.getElementById("answerArea").style.display="none"
+document.getElementById("answerInput").value=""
+
+game.storyIndex=(game.storyIndex+1)%game.players.length
+game.round++
+
+nextRound()
+
+}
+
+</script>
+
+</body>
+</html>

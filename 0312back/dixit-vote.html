@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dixit 投票系统</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 28px;
+            margin-bottom: 24px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .room-code {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 8px;
+            color: #667eea;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin: 16px 0;
+        }
+
+        #qrcode {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        #qrcode canvas {
+            border-radius: 8px;
+        }
+
+        .player-list {
+            list-style: none;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .player-name {
+            font-weight: 500;
+        }
+
+        .player-score {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .host-badge {
+            background: #ffd700;
+            color: #333;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .storyteller-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .card-btn {
+            aspect-ratio: 1;
+            border: 3px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: bold;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .card-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .card-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .leaderboard {
+            margin-top: 16px;
+        }
+
+        .leader-item {
+            display: flex;
+            align-items: center;
+            padding: 14px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .rank {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        .rank-1 { background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); color: #333; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%); color: #333; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f32 0%, #daa06d 100%); color: #333; }
+
+        .leader-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .leader-score {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .status-bar {
+            text-align: center;
+            padding: 12px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .waiting-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .round-info {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .error-msg {
+            color: #eb3349;
+            text-align: center;
+            padding: 10px;
+            background: #ffeaea;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .success-msg {
+            color: #11998e;
+            text-align: center;
+            padding: 10px;
+            background: #e8f8f5;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .vote-status {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 12px 0;
+        }
+
+        .vote-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e0e0e0;
+        }
+
+        .vote-dot.voted {
+            background: #38ef7d;
+        }
+
+        .score-change {
+            text-align: center;
+            padding: 16px;
+            background: #e8f8f5;
+            border-radius: 10px;
+            margin: 12px 0;
+        }
+
+        .score-change.positive {
+            color: #11998e;
+            font-weight: bold;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hidden { display: none !important; }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn hidden" id="backBtn">&#8592;</button>
+
+    <div class="container">
+        <h1>Dixit 投票系统</h1>
+
+        <!-- 首页 -->
+        <div id="homePage" class="card fade-in">
+            <h2>选择操作</h2>
+            <button class="btn btn-primary" onclick="showCreateRoom()">创建房间</button>
+            <button class="btn btn-secondary" onclick="showJoinRoom()">加入房间</button>
+        </div>
+
+        <!-- 创建房间 -->
+        <div id="createRoomPage" class="card hidden fade-in">
+            <h2>创建房间</h2>
+            <div id="createError" class="error-msg hidden"></div>
+            <div class="room-code" id="roomCodeDisplay">------</div>
+            <div id="qrcode"></div>
+            <p style="text-align: center; color: #666; margin: 12px 0;">分享二维码或房间码给朋友</p>
+            <button class="btn btn-primary" id="enterRoomBtn" onclick="enterRoomAsHost()">进入房间</button>
+        </div>
+
+        <!-- 加入房间 -->
+        <div id="joinRoomPage" class="card hidden fade-in">
+            <h2>加入房间</h2>
+            <div id="joinError" class="error-msg hidden"></div>
+            <input type="text" id="joinCodeInput" placeholder="输入房间码" maxlength="6" style="text-transform: uppercase; text-align: center; font-size: 24px; letter-spacing: 4px;">
+            <input type="text" id="playerNameInput" placeholder="输入你的名字" maxlength="20">
+            <button class="btn btn-primary" onclick="joinRoom()">加入</button>
+        </div>
+
+        <!-- 游戏大厅 -->
+        <div id="lobbyPage" class="card hidden fade-in">
+            <h2>游戏大厅</h2>
+            <div class="round-info" id="roomCodeInfo">房间码: ------</div>
+            <div class="status-bar" id="playerCount">等待玩家加入...</div>
+            <ul class="player-list" id="lobbyPlayerList"></ul>
+            <button class="btn btn-success" id="startGameBtn" onclick="startGame()" disabled>开始游戏 (需3人以上)</button>
+        </div>
+
+        <!-- 投票页 -->
+        <div id="votePage" class="card hidden fade-in">
+            <h2>投票时间</h2>
+            <div class="round-info" id="voteRoundInfo">第 1 轮</div>
+            <div class="status-bar" id="voteStatus">请选择你投票的卡牌</div>
+            <div class="card-grid" id="cardGrid"></div>
+            <div class="vote-status" id="voteProgress"></div>
+            <button class="btn btn-primary" id="submitVoteBtn" onclick="submitVote()" disabled>确认投票</button>
+        </div>
+
+        <!-- 等待投票 -->
+        <div id="waitingVotePage" class="card hidden fade-in">
+            <h2>等待投票</h2>
+            <div class="status-bar">
+                其他玩家正在投票<span class="waiting-dots"></span>
+            </div>
+            <div class="vote-status" id="waitVoteProgress"></div>
+        </div>
+
+        <!-- 主持人输入正确答案 -->
+        <div id="hostInputPage" class="card hidden fade-in">
+            <h2>输入正确答案</h2>
+            <div class="round-info">你是主持人，请输入本轮的正确卡牌编号</div>
+            <div id="hostCardGrid" class="card-grid"></div>
+            <button class="btn btn-success" id="confirmCorrectBtn" onclick="confirmCorrectCard()" disabled>确认正确答案</button>
+        </div>
+
+        <!-- 结果页 -->
+        <div id="resultPage" class="card hidden fade-in">
+            <h2>本轮得分</h2>
+            <div class="round-info" id="resultRoundInfo">第 1 轮</div>
+            <div id="scoreChanges"></div>
+            <h3 style="margin: 20px 0 12px;">排行榜</h3>
+            <div class="leaderboard" id="resultLeaderboard"></div>
+            <button class="btn btn-primary" id="nextRoundBtn" onclick="nextRound()">下一轮</button>
+            <button class="btn btn-secondary" onclick="endGame()">结束游戏</button>
+        </div>
+
+        <!-- 游戏结束 -->
+        <div id="gameOverPage" class="card hidden fade-in">
+            <h2>游戏结束!</h2>
+            <div class="leaderboard" id="finalLeaderboard"></div>
+            <button class="btn btn-primary" onclick="goHome()">返回首页</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== Firebase 配置 ==========
+        // 请替换为您的 Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-1aiEF1yjcbg_jESVpXlM_Jdn7k4r79U",
+            authDomain: "xagameproject.firebaseapp.com",
+            projectId: "xagameproject",
+            storageBucket: "xagameproject.firebasestorage.app",
+            databaseURL: "https://xagameproject-default-rtdb.asia-southeast1.firebasedatabase.app",
+            messagingSenderId: "1018819296928",
+            appId: "1:1018819296928:web:b1d0dc3dc4a8c51445d3c5",
+            measurementId: "G-L4VPZECQCD"
+        };
+
+        // ========== 全局变量 ==========
+        let app, database;
+        let currentRoomCode = null;
+        let currentPlayerId = null;
+        let currentPlayerName = null;
+        let isHost = false;
+        let unsubscribe = null;
+        let isCalculating = false; // 防止重复结算的锁
+
+        // ========== 初始化 ==========
+        function initFirebase() {
+            try {
+                app = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                console.log('Firebase initialized');
+            } catch (e) {
+                console.error('Firebase init error:', e);
+                showError('createError', 'Firebase 初始化失败，请检查配置');
+            }
+        }
+
+        // ========== 页面导航 ==========
+        function hideAllPages() {
+            const pages = ['homePage', 'createRoomPage', 'joinRoomPage', 'lobbyPage', 
+                          'votePage', 'waitingVotePage', 'hostInputPage', 'resultPage', 'gameOverPage'];
+            pages.forEach(p => document.getElementById(p).classList.add('hidden'));
+        }
+
+        function showPage(pageId) {
+            hideAllPages();
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function hideError(elementId) {
+            document.getElementById(elementId).classList.add('hidden');
+        }
+
+        // ========== 房间操作 ==========
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function showCreateRoom() {
+            hideError('createError');
+            const code = generateRoomCode();
+            document.getElementById('roomCodeDisplay').textContent = code;
+            
+            // 生成二维码
+            const joinUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            QRCode.toCanvas(document.createElement('canvas'), joinUrl, { 
+                width: 200,
+                margin: 2
+            }, (err, canvas) => {
+                if (!err) qrContainer.appendChild(canvas);
+            });
+
+            currentRoomCode = code;
+            showPage('createRoomPage');
+        }
+
+        function showJoinRoom() {
+            hideError('joinError');
+            document.getElementById('joinCodeInput').value = '';
+            document.getElementById('playerNameInput').value = '';
+            showPage('joinRoomPage');
+        }
+
+        async function enterRoomAsHost() {
+            if (!currentRoomCode) return;
+            
+            const name = prompt('请输入你的名字:');
+            if (!name || name.trim() === '') return;
+            
+            currentPlayerName = name.trim();
+            isHost = true;
+            
+            await createRoom(currentRoomCode, currentPlayerName);
+        }
+
+        async function createRoom(code, name) {
+            try {
+                currentPlayerId = database.ref().push().key;
+                
+                const roomRef = database.ref(`rooms/${code}`);
+                await roomRef.set({
+                    info: {
+                        createdAt: Date.now(),
+                        currentRound: 1,
+                        status: 'waiting',
+                        storytellerIndex: 0,
+                        correctCardId: null,
+                        storytellerCardId: null,
+                        cardCount: 6
+                    },
+                    players: {
+                        [currentPlayerId]: {
+                            name: currentPlayerName,
+                            score: 0,
+                            cardId: null,
+                            hasVoted: false,
+                            votedFor: null,
+                            isHost: true
+                        }
+                    }
+                });
+
+                currentRoomCode = code;
+                watchRoom();
+                showPage('lobbyPage');
+                updateLobby();
+            } catch (e) {
+                console.error('Create room error:', e);
+                showError('createError', '创建房间失败: ' + e.message);
+            }
+        }
+
+        async function joinRoom() {
+            const code = document.getElementById('joinCodeInput').value.toUpperCase().trim();
+            const name = document.getElementById('playerNameInput').value.trim();
+
+            if (code.length !== 6) {
+                showError('joinError', '请输入6位房间码');
+                return;
+            }
+            if (!name) {
+                showError('joinError', '请输入名字');
+                return;
+            }
+
+            try {
+                // 检查房间是否存在
+                const roomRef = database.ref(`rooms/${code}/info`);
+                const snapshot = await roomRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showError('joinError', '房间不存在');
+                    return;
+                }
+
+                const roomInfo = snapshot.val();
+                if (roomInfo.status !== 'waiting') {
+                    showError('joinError', '游戏已开始，无法加入');
+                    return;
+                }
+
+                currentPlayerId = database.ref().push().key;
+                currentPlayerName = name;
+                currentRoomCode = code;
+                isHost = false;
+
+                // 检查名字是否已存在
+                const playersRef = database.ref(`rooms/${code}/players`);
+                const playersSnap = await playersRef.once('value');
+                const players = playersSnap.val() || {};
+                
+                const names = Object.values(players).map(p => p.name.toLowerCase());
+                if (names.includes(name.toLowerCase())) {
+                    showError('joinError', '这个名字已被使用');
+                    return;
+                }
+
+                // 添加玩家
+                await database.ref(`rooms/${code}/players/${currentPlayerId}`).set({
+                    name: currentPlayerName,
+                    score: 0,
+                    cardId: null,
+                    hasVoted: false,
+                    votedFor: null,
+                    isHost: false
+                });
+
+                watchRoom();
+                showPage('lobbyPage');
+                updateLobby();
+            } catch (e) {
+                console.error('Join room error:', e);
+                showError('joinError', '加入房间失败: ' + e.message);
+            }
+        }
+
+        // ========== 实时监听 ==========
+        function watchRoom() {
+            if (unsubscribe) unsubscribe();
+
+            const roomRef = database.ref(`rooms/${currentRoomCode}`);
+            unsubscribe = roomRef.on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('房间已关闭');
+                    goHome();
+                    return;
+                }
+                
+                const data = snapshot.val();
+                handleRoomUpdate(data);
+            });
+        }
+
+        function handleRoomUpdate(data) {
+            const status = data.info.status;
+            
+            // 更新大厅
+            if (status === 'waiting') {
+                updateLobby();
+                showPage('lobbyPage');
+            }
+            
+            // 投票阶段
+            if (status === 'voting') {
+                updateVotingUI(data);
+            }
+            
+            // 计分阶段：只允许主持人执行一次结算
+            if (status === 'scoring') {
+                if (isHost) {
+                    calculateAndShowScores(data);
+                } else {
+                    // 非主持人等待结算完成（主持人会把状态切到 result）
+                    showPage('waitingVotePage');
+                }
+            }
+
+            // 结果展示阶段（所有人展示）
+            if (status === 'result') {
+                showResultPage(data);
+            }
+        }
+
+        // ========== 大厅 ==========
+        function updateLobby() {
+            database.ref(`rooms/${currentRoomCode}`).once('value', (snapshot) => {
+                const data = snapshot.val();
+                const players = data.players || {};
+                const playerArray = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+                
+                document.getElementById('roomCodeInfo').textContent = `房间码: ${currentRoomCode}`;
+                document.getElementById('playerCount').textContent = `${playerArray.length} 位玩家`;
+                
+                const list = document.getElementById('lobbyPlayerList');
+                list.innerHTML = playerArray.map(p => `
+                    <li class="player-item">
+                        <span class="player-name">
+                            ${p.name}
+                            ${p.isHost ? '<span class="host-badge">主持</span>' : ''}
+                        </span>
+                        <span class="player-score">${p.score} 分</span>
+                    </li>
+                `).join('');
+
+                // 主持人才能开始游戏
+                const startBtn = document.getElementById('startGameBtn');
+                if (isHost) {
+                    startBtn.disabled = playerArray.length < 3;
+                    startBtn.textContent = playerArray.length < 3 
+                        ? `开始游戏 (需${3 - playerArray.length}人)` 
+                        : '开始游戏';
+                } else {
+                    startBtn.textContent = '等待主持人开始游戏...';
+                    startBtn.disabled = true;
+                }
+            });
+        }
+
+        async function startGame() {
+            try {
+                await database.ref(`rooms/${currentRoomCode}/info/status`).set('voting');
+                
+                // 为每个玩家分配卡牌
+                const playersRef = database.ref(`rooms/${currentRoomCode}/players`);
+                const snapshot = await playersRef.once('value');
+                const players = snapshot.val();
+                
+                const cardCount = 6;
+                const playerIds = Object.keys(players);
+                
+                for (let i = 0; i < playerIds.length; i++) {
+                    await database.ref(`rooms/${currentRoomCode}/players/${playerIds[i]}/cardId`).set(i + 1);
+                    await database.ref(`rooms/${currentRoomCode}/players/${playerIds[i]}/hasVoted`).set(false);
+                    await database.ref(`rooms/${currentRoomCode}/players/${playerIds[i]}/votedFor`).set(null);
+                }
+
+                // 随机选择讲述者
+                const storytellerIndex = Math.floor(Math.random() * playerIds.length);
+                await database.ref(`rooms/${currentRoomCode}/info/storytellerIndex`).set(storytellerIndex);
+                
+            } catch (e) {
+                console.error('Start game error:', e);
+            }
+        }
+
+        // ========== 投票 ==========
+        function updateVotingUI(data) {
+            const players = data.players || {};
+            const playerArray = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+            const currentPlayer = players[currentPlayerId];
+            const storytellerIndex = data.info.storytellerIndex;
+            
+            const isStoryteller = playerArray[storytellerIndex]?.id === currentPlayerId;
+            
+            document.getElementById('voteRoundInfo').textContent = `第 ${data.info.currentRound} 轮`;
+
+            if (isStoryteller) {
+                // 讲述者不能投票
+                document.getElementById('voteStatus').textContent = '你是讲述者，请等待其他玩家投票';
+                document.getElementById('cardGrid').innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #666;">
+                        你的卡牌编号是: <strong style="font-size: 32px; color: #667eea;">${currentPlayer?.cardId || '-'}</strong>
+                    </div>
+                `;
+                document.getElementById('submitVoteBtn').classList.add('hidden');
+                showPage('votePage');
+            } else if (currentPlayer?.hasVoted) {
+                // 已投票
+                showPage('waitingVotePage');
+                updateVoteProgress(data);
+                return;
+            } else {
+                // 可以投票
+                document.getElementById('voteStatus').textContent = '请选择你投票的卡牌';
+                renderCardGrid('cardGrid', currentPlayer?.cardId);
+                document.getElementById('submitVoteBtn').classList.remove('hidden');
+                showPage('votePage');
+            }
+
+            // 更新投票进度
+            updateVoteProgress(data);
+        }
+
+        function renderCardGrid(containerId, excludeCard) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            for (let i = 1; i <= 6; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'card-btn';
+                btn.textContent = i;
+                btn.onclick = () => selectCard(i);
+                if (i === excludeCard) {
+                    btn.style.opacity = '0.5';
+                    btn.disabled = true;
+                }
+                container.appendChild(btn);
+            }
+        }
+
+        let selectedCard = null;
+
+        function selectCard(cardId) {
+            selectedCard = cardId;
+            const buttons = document.querySelectorAll('#cardGrid .card-btn');
+            buttons.forEach((btn, idx) => {
+                btn.classList.toggle('selected', idx + 1 === cardId);
+            });
+            document.getElementById('submitVoteBtn').disabled = false;
+        }
+
+        async function submitVote() {
+            if (!selectedCard) return;
+            
+            try {
+                await database.ref(`rooms/${currentRoomCode}/players/${currentPlayerId}`).update({
+                    hasVoted: true,
+                    votedFor: selectedCard
+                });
+                
+                showPage('waitingVotePage');
+            } catch (e) {
+                console.error('Submit vote error:', e);
+            }
+        }
+
+        function updateVoteProgress(data) {
+            const players = data.players || {};
+            const playerArray = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+            const storytellerIndex = data.info.storytellerIndex;
+            const storyteller = playerArray[storytellerIndex];
+
+            // 投票人数 = 总人数 - 1（讲述者不投票）
+            const votedCount = playerArray.filter(p => p.id !== storyteller.id && p.hasVoted).length;
+            const totalCount = playerArray.length - 1;
+
+            // 只显示非讲述者的投票进度点
+            const voterPlayers = playerArray.filter(p => p.id !== storyteller.id);
+            const html = voterPlayers.map(p => 
+                `<div class="vote-dot ${p.hasVoted ? 'voted' : ''}" title="${p.name}"></div>`
+            ).join('');
+            
+            document.getElementById('voteProgress').innerHTML = html + `<span style="margin-left: 8px;">${votedCount}/${totalCount}</span>`;
+            document.getElementById('waitVoteProgress').innerHTML = html + `<span style="margin-left: 8px;">${votedCount}/${totalCount}</span>`;
+
+            // 检查是否所有人都投票了
+            if (votedCount === totalCount && isHost) {
+                // 主持人输入正确答案
+                showHostInputPage(data);
+                return; // 防止被后续覆盖
+            } else if (votedCount === totalCount) {
+                showPage('waitingVotePage');
+            }
+        }
+
+        function showHostInputPage(data) {
+            const players = data.players || {};
+            const playerArray = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+            const storytellerIndex = data.info.storytellerIndex;
+            const storyteller = playerArray[storytellerIndex];
+            
+            const container = document.getElementById('hostCardGrid');
+            container.innerHTML = '';
+            
+            for (let i = 1; i <= 6; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'card-btn';
+                btn.textContent = i;
+                btn.onclick = () => selectCorrectCard(i);
+                btn.style.borderColor = i === storyteller.cardId ? '#ffd700' : '';
+                btn.style.borderWidth = i === storyteller.cardId ? '4px' : '';
+                container.appendChild(btn);
+            }
+            
+            selectedCard = null;
+            showPage('hostInputPage');
+        }
+
+        let correctCard = null;
+
+        function selectCorrectCard(cardId) {
+            correctCard = cardId;
+            const buttons = document.querySelectorAll('#hostCardGrid .card-btn');
+            buttons.forEach((btn, idx) => {
+                btn.classList.toggle('selected', idx + 1 === cardId);
+            });
+            document.getElementById('confirmCorrectBtn').disabled = false;
+        }
+
+        async function confirmCorrectCard() {
+            if (!correctCard) return;
+            
+            try {
+                await database.ref(`rooms/${currentRoomCode}/info`).update({
+                    correctCardId: correctCard,
+                    status: 'scoring'
+                });
+            } catch (e) {
+                console.error('Confirm correct card error:', e);
+            }
+        }
+
+        // ========== 计分 ==========
+        async function calculateAndShowScores(data) {
+            // 数据库层面的锁：只允许第一个成功把 scoreCalculated 从 false -> true 的实例结算
+            const infoRef = database.ref(`rooms/${currentRoomCode}/info`);
+            let infoAfter = null;
+
+            try {
+                infoAfter = await new Promise((resolve, reject) => {
+                    infoRef.transaction(current => {
+                        if (!current) return current;
+                        if (current.status !== 'scoring') return current;
+                        if (current.scoreCalculated) return current;
+                        current.scoreCalculated = true;
+                        return current;
+                    }, (error, committed, snapshot) => {
+                        if (error) {
+                            reject(error);
+                        } else if (!committed || !snapshot.exists()) {
+                            resolve(null);
+                        } else {
+                            resolve(snapshot.val());
+                        }
+                    }, false);
+                });
+            } catch (e) {
+                console.error('Score transaction error:', e);
+                return;
+            }
+
+            // 没有抢到锁，说明其他标签页/设备已经在结算了，直接退出
+            if (!infoAfter || infoAfter.status !== 'scoring' || !infoAfter.scoreCalculated) {
+                return;
+            }
+
+            // 用最新的数据重新读取房间
+            const roomSnap = await database.ref(`rooms/${currentRoomCode}`).once('value');
+            const freshData = roomSnap.val();
+            const players = freshData.players || {};
+            const playerArray = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+            const storytellerIndex = freshData.info.storytellerIndex;
+            const correctCardId = freshData.info.correctCardId;
+            const storyteller = playerArray[storytellerIndex];
+
+            // 计算猜对的人数
+            let correctGuessers = 0;
+            const voterMap = {};
+            
+            playerArray.forEach(p => {
+                if (p.id !== storyteller.id && p.votedFor === correctCardId) {
+                    correctGuessers++;
+                    voterMap[p.id] = true;
+                }
+            });
+
+            // Dixit 计分规则
+            let scoreChanges = [];
+            
+            if (correctGuessers === 0 || correctGuessers === playerArray.length - 1) {
+                // 情况1: 所有人猜对或没有人猜对
+                // 讲述者 0分，其他人 +2分
+                playerArray.forEach(p => {
+                    let change = 0;
+                    if (p.id !== storyteller.id) {
+                        change = 2;
+                    }
+                    scoreChanges.push({ player: p, change });
+                });
+            } else {
+                // 情况2: 部分人猜对
+                // 讲述者 +3，猜对的人 +3
+                playerArray.forEach(p => {
+                    let change = 0;
+                    if (p.id === storyteller.id) {
+                        change = 3;
+                    } else if (voterMap[p.id]) {
+                        change = 3;
+                    }
+                    scoreChanges.push({ player: p, change });
+                });
+            }
+
+            // 额外规则: 有人投票给你的卡 +1分
+            playerArray.forEach(p => {
+                let extraPoints = 0;
+                playerArray.forEach(voter => {
+                    if (voter.votedFor === p.cardId && voter.id !== p.id) {
+                        extraPoints++;
+                    }
+                });
+                if (extraPoints > 0) {
+                    const changeObj = scoreChanges.find(c => c.player.id === p.id);
+                    if (changeObj) {
+                        changeObj.change += extraPoints;
+                        changeObj.extra = extraPoints;
+                    }
+                }
+            });
+
+            // 更新分数
+            for (const change of scoreChanges) {
+                const newScore = (players[change.player.id]?.score || 0) + change.change;
+                await database.ref(`rooms/${currentRoomCode}/players/${change.player.id}/score`).set(newScore);
+            }
+
+            // 写入本轮得分变化并切到 result，其他客户端只负责展示
+            const lastScoreChanges = scoreChanges.map(sc => ({
+                playerId: sc.player.id,
+                name: sc.player.name,
+                change: sc.change,
+                extra: sc.extra || 0
+            }));
+
+            await database.ref(`rooms/${currentRoomCode}/info`).update({
+                lastScoreChanges,
+                status: 'result'
+            });
+        }
+
+        function showResultPage(data, scoreChanges) {
+            document.getElementById('resultRoundInfo').textContent = `第 ${data.info.currentRound} 轮`;
+            
+            // 显示得分变化
+            let changes = scoreChanges;
+            if (!changes) {
+                const stored = data.info.lastScoreChanges || [];
+                changes = stored.map(sc => ({
+                    player: { id: sc.playerId, name: sc.name },
+                    change: sc.change,
+                    extra: sc.extra || 0
+                }));
+            }
+
+            const changesHtml = (changes || []).map(sc => `
+                <div class="score-change">
+                    <strong>${sc.player.name}</strong>
+                    ${sc.change > 0 ? `+${sc.change}` : sc.change} 分
+                    ${sc.extra ? `<div style="font-size: 12px; color: #666;">(含投票奖励 +${sc.extra})</div>` : ''}
+                </div>
+            `).join('');
+            document.getElementById('scoreChanges').innerHTML = changesHtml;
+
+            // 显示排行榜
+            renderLeaderboard('resultLeaderboard', data);
+            
+            showPage('resultPage');
+        }
+
+        function renderLeaderboard(containerId, data) {
+            const players = data.players || {};
+            const playerArray = Object.entries(players)
+                .map(([id, p]) => ({ id, ...p }))
+                .sort((a, b) => b.score - a.score);
+
+            const html = playerArray.map((p, idx) => `
+                <div class="leader-item">
+                    <div class="rank rank-${idx + 1}">${idx + 1}</div>
+                    <div class="leader-name">
+                        ${p.name}
+                        ${p.isHost ? '<span class="host-badge">主持</span>' : ''}
+                    </div>
+                    <div class="leader-score">${p.score}</div>
+                </div>
+            `).join('');
+
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        async function nextRound() {
+            try {
+                const newRound = (await database.ref(`rooms/${currentRoomCode}/info/currentRound`).once('value')).val() + 1;
+                
+                await database.ref(`rooms/${currentRoomCode}/info`).update({
+                    currentRound: newRound,
+                    status: 'voting',
+                    correctCardId: null,
+                    lastScoreChanges: null,
+                    scoreCalculated: null
+                });
+
+                isCalculating = false;
+
+                // 重新分配卡牌和重置投票
+                const playersRef = database.ref(`rooms/${currentRoomCode}/players`);
+                const snapshot = await playersRef.once('value');
+                const players = snapshot.val();
+                const playerIds = Object.keys(players);
+                
+                for (let i = 0; i < playerIds.length; i++) {
+                    const newCardId = ((i + newRound - 1) % 6) + 1;
+                    await database.ref(`rooms/${currentRoomCode}/players/${playerIds[i]}`).update({
+                        cardId: newCardId,
+                        hasVoted: false,
+                        votedFor: null
+                    });
+                }
+
+                // 轮换讲述者
+                const currentStorytellerIndex = (await database.ref(`rooms/${currentRoomCode}/info/storytellerIndex`).once('value')).val();
+                const nextStorytellerIndex = (currentStorytellerIndex + 1) % playerIds.length;
+                await database.ref(`rooms/${currentRoomCode}/info/storytellerIndex`).set(nextStorytellerIndex);
+
+            } catch (e) {
+                console.error('Next round error:', e);
+            }
+        }
+
+        async function endGame() {
+            showPage('gameOverPage');
+            database.ref(`rooms/${currentRoomCode}`).once('value', (snapshot) => {
+                renderLeaderboard('finalLeaderboard', snapshot.val());
+            });
+        }
+
+        // ========== 工具 ==========
+        function goHome() {
+            if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+            }
+            currentRoomCode = null;
+            currentPlayerId = null;
+            currentPlayerName = null;
+            isHost = false;
+            selectedCard = null;
+            correctCard = null;
+            isCalculating = false;
+            showPage('homePage');
+        }
+
+        // ========== 启动 ==========
+        window.onload = function() {
+            initFirebase();
+            
+            // 检查 URL 参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            if (roomCode) {
+                document.getElementById('joinCodeInput').value = roomCode.toUpperCase();
+                showJoinRoom();
+            }
+        };
+    </script>
+</body>
+</html>

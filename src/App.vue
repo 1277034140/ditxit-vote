@@ -1,0 +1,17 @@
+<template>
+  <div class="app">
+    <GameView />
+  </div>
+</template>
+
+<script setup>
+import GameView from './views/GameView.vue'
+</script>
+
+<style>
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+</style>
